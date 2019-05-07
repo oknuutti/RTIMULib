@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Serge Schneider <serge@raspberrypi.org>
 Build-Depends: debhelper (>= 9), dh-python, python-dev, python3-dev,
  python (>= 2.6.6-3~), python3, cmake
-Standards-Version: 3.9.6
+Standards-Version: 4.3.0
 Homepage: https://github.com/richards-tech/RTIMULib
 Vcs-Git: https://github.com/RPi-Distro/RTIMULib.git -b debian
 Vcs-Browser: https://github.com/RPi-Distro/RTIMULib/tree/debian
@@ -15,7 +15,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (shared library)
  The simplest way to connect a 9-dof, 10-dof or 11-dof IMU to an embedded Linux
  system and obtain Kalman-filtered quaternion or Euler angle pose data.
- Basically, two simple funtion calls (IMUInit() and IMURead()) are pretty much
+ Basically, two simple function calls (IMUInit() and IMURead()) are pretty much
  all that's needed to integrate RTIMULib.
  .
  This package provides shared library.
@@ -27,7 +27,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, librtimulib7 (= ${binary:Version})
 Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (dev files)
  The simplest way to connect a 9-dof, 10-dof or 11-dof IMU to an embedded Linux
  system and obtain Kalman-filtered quaternion or Euler angle pose data.
- Basically, two simple funtion calls (IMUInit() and IMURead()) are pretty much
+ Basically, two simple function calls (IMUInit() and IMURead()) are pretty much
  all that's needed to integrate RTIMULib.
  .
  This package provides the development files.
@@ -40,7 +40,7 @@ Suggests: octave
 Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (utilities)
  The simplest way to connect a 9-dof, 10-dof or 11-dof IMU to an embedded Linux
  system and obtain Kalman-filtered quaternion or Euler angle pose data.
- Basically, two simple funtion calls (IMUInit() and IMURead()) are pretty much
+ Basically, two simple function calls (IMUInit() and IMURead()) are pretty much
  all that's needed to integrate RTIMULib.
  .
  This package provides the calibration utility.
@@ -48,12 +48,13 @@ Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (util
 Package: python-rtimulib
 Section: python
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, librtimulib7 (= ${binary:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends},
+ librtimulib7 (= ${binary:Version})
 Recommends: librtimulib-utils
 Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (Python 2)
  The simplest way to connect a 9-dof, 10-dof or 11-dof IMU to an embedded Linux
  system and obtain Kalman-filtered quaternion or Euler angle pose data.
- Basically, two simple funtion calls (IMUInit() and IMURead()) are pretty much
+ Basically, two simple function calls (IMUInit() and IMURead()) are pretty much
  all that's needed to integrate RTIMULib.
  .
  This package provides the Python 2 module.
@@ -61,12 +62,13 @@ Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (Pyth
 Package: python3-rtimulib
 Section: python
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, librtimulib7 (= ${binary:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends},
+ librtimulib7 (= ${binary:Version})
 Recommends: librtimulib-utils
 Description: Versatile C++ and Python 9-dof, 10-dof and 11-dof IMU library (Python 3)
  The simplest way to connect a 9-dof, 10-dof or 11-dof IMU to an embedded Linux
  system and obtain Kalman-filtered quaternion or Euler angle pose data.
- Basically, two simple funtion calls (IMUInit() and IMURead()) are pretty much
+ Basically, two simple function calls (IMUInit() and IMURead()) are pretty much
  all that's needed to integrate RTIMULib.
  .
  This package provides the Python 3 module.
