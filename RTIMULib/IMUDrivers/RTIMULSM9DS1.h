@@ -68,12 +68,15 @@ private:
     bool setGyroCTRL3();
     bool setAccelCTRL6();
     bool setAccelCTRL7();
+    bool setAccelGyroCTRL9();
+    bool setFifoCTRL();
     bool setCompassCTRL1();
     bool setCompassCTRL2();
     bool setCompassCTRL3();
 
     unsigned char m_accelGyroSlaveAddr;                     // I2C address of accel andgyro
     unsigned char m_magSlaveAddr;                           // I2C address of mag
+    unsigned char m_samples;
 
     RTFLOAT m_gyroScale;
     RTFLOAT m_accelScale;

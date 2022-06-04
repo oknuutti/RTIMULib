@@ -32,6 +32,7 @@
 RTIMULSM9DS1::RTIMULSM9DS1(RTIMUSettings *settings) : RTIMU(settings)
 {
     m_sampleRate = 100;
+    m_samples = 0;
 }
 
 RTIMULSM9DS1::~RTIMULSM9DS1()
@@ -86,7 +87,7 @@ bool RTIMULSM9DS1::IMUInit()
 
     //  Set up the gyro/accel
 
-    if (!m_settings->HALWrite(m_accelGyroSlaveAddr, LSM9DS1_CTRL8, 0x80, "Failed to boot LSM9DS1"))
+    if (!m_settings->HALWrite(m_accelGyroSlaveAddr, LSM9DS1_CTRL8, 0x84, "Failed to boot LSM9DS1"))
         return false;
 
     m_settings->delayMs(100);
@@ -119,6 +120,12 @@ bool RTIMULSM9DS1::IMUInit()
         return false;
 
     if (!setAccelCTRL7())
+        return false;
+
+    if (!setAccelGyroCTRL9())
+        return false;
+
+    if (!setFifoCTRL())
         return false;
 
     if (!setCompassCTRL1())
@@ -275,6 +282,9 @@ bool RTIMULSM9DS1::setAccelCTRL6()
 
     ctrl6 |= (m_settings->m_LSM9DS1AccelLpf) | (m_settings->m_LSM9DS1AccelFsr << 3);
 
+    // if not set, LPF cutoff defined based on ODR - 119 Hz: 50 Hz, 238 Hz: 105 Hz, etc
+    ctrl6 |= 0x04;   // enable manual LPF cutoff selection (m_LSM9DS1AccelLpf)
+
     return m_settings->HALWrite(m_accelGyroSlaveAddr,  LSM9DS1_CTRL6, ctrl6, "Failed to set LSM9DS1 accel CTRL6");
 }
 
@@ -286,9 +296,26 @@ bool RTIMULSM9DS1::setAccelCTRL7()
     //Bug: Bad things happen.
     //ctrl7 = 0x05;
 
+    // possibility for an extra (very) low pass filter
+    // 0xC4: ODR/9, 0x84: ODR/50, 0xA4: ODR/100, 0xE4: ODR/400
+    // ctrl7 = 0xC4;
+
     return m_settings->HALWrite(m_accelGyroSlaveAddr,  LSM9DS1_CTRL7, ctrl7, "Failed to set LSM9DS1 accel CTRL7");
 }
 
+bool RTIMULSM9DS1::setAccelGyroCTRL9()
+{
+    unsigned char ctrl9;
+    // ctrl9 = 0x00;   // FIFO disabled (default)
+    ctrl9 = 0x02;   // FIFO enabled
+    return m_settings->HALWrite(m_accelGyroSlaveAddr,  LSM9DS1_CTRL9, ctrl9, "Failed to set LSM9DS1 accel CTRL9");
+}
+
+bool RTIMULSM9DS1::setFifoCTRL()
+{
+    unsigned char ctrl = 0xC0;   // continuous FIFO mode, full 32 slots available
+    return m_settings->HALWrite(m_accelGyroSlaveAddr,  LSM9DS1_FIFO_CTRL, ctrl, "Failed to set LSM9DS1 FIFO_CTRL");
+}
 
 bool RTIMULSM9DS1::setCompassCTRL1()
 {
@@ -346,63 +373,75 @@ bool RTIMULSM9DS1::setCompassCTRL3()
 
 int RTIMULSM9DS1::IMUGetPollInterval()
 {
-    return (400 / m_sampleRate);
+    // return (400 / m_sampleRate);
+    return (int)m_samples;
 }
 
 bool RTIMULSM9DS1::IMURead()
 {
-    unsigned char status;
-    unsigned char gyroData[6];
-    unsigned char accelData[6];
+    unsigned char status=1;
+    unsigned char mag_status=1;
+    unsigned char gyroAccData[12];
     unsigned char compassData[6];
 
-    if (!m_settings->HALRead(m_accelGyroSlaveAddr, LSM9DS1_STATUS, 1, &status, "Failed to read LSM9DS1 status"))
+    if (!m_settings->HALRead(m_accelGyroSlaveAddr, LSM9DS1_FIFO_SRC, 1, &status, "Failed to read LSM9DS1 FIFO status"))
         return false;
 
-    if ((status & 0x3) == 0)
+    //if (!m_settings->HALRead(m_accelGyroSlaveAddr, LSM9DS1_STATUS, 1, &status, "Failed to read LSM9DS1 status"))
+    //    return false;
+    
+    //if (!m_settings->HALRead(m_magSlaveAddr, LSM9DS1_MAG_STATUS, 1, &mag_status, "Failed to read LSM9DS1 mag status"))
+    //    return false;
+
+    m_samples = status & 0x3F;   // number of unread measurements in the queue
+    if (m_samples == 0)
         return false;
+    status = 1;
 
-    for (int i = 0; i<6; i++){
-        if (!m_settings->HALRead(m_accelGyroSlaveAddr, LSM9DS1_OUT_X_L_G + i, 1, &gyroData[i], "Failed to read LSM9DS1 gyro data"))
-            return false;
+    //if ((status & 0x3) != 3)
+    //    return false;
 
-        if (!m_settings->HALRead(m_accelGyroSlaveAddr, LSM9DS1_OUT_X_L_XL + i, 1, &accelData[i], "Failed to read LSM9DS1 accel data"))
-            return false;
+    if (!m_settings->HALRead(m_accelGyroSlaveAddr, LSM9DS1_OUT_X_L_G, 12, gyroAccData, "Failed to read LSM9DS1 gyro and acc data"))
+        status = 0;
 
-        if (!m_settings->HALRead(m_magSlaveAddr, LSM9DS1_MAG_OUT_X_L + i, 1, &compassData[i], "Failed to read LSM9DS1 compass data"))
-            return false;
-    }
-
+    if (mag_status && !m_settings->HALRead(m_magSlaveAddr, LSM9DS1_MAG_OUT_X_L | 0x80, 6, compassData, "Failed to read LSM9DS1 compass data"))
+        mag_status = 0;
 
     m_imuData.timestamp = RTMath::currentUSecsSinceEpoch();
+    m_imuData.gyroValid = (bool)status;
+    m_imuData.accelValid = (bool)status;
+    m_imuData.compassValid = (bool)mag_status;
 
-    RTMath::convertToVector(gyroData, m_imuData.gyro, m_gyroScale, false);
-    RTMath::convertToVector(accelData, m_imuData.accel, m_accelScale, false);
-    RTMath::convertToVector(compassData, m_imuData.compass, m_compassScale, false);
+    if (status)
+        RTMath::convertToVector(gyroAccData, m_imuData.gyro, m_gyroScale, false);
+    if (status)
+        RTMath::convertToVector(&gyroAccData[6], m_imuData.accel, m_accelScale, false);
+    if (mag_status)
+        RTMath::convertToVector(compassData, m_imuData.compass, m_compassScale, false);
 
     //  sort out gyro axes and correct for bias
 
-    m_imuData.gyro.setZ(-m_imuData.gyro.z());
+    ///m_imuData.gyro.setZ(-m_imuData.gyro.z());
 
     //  sort out accel data;
 
-    m_imuData.accel.setX(-m_imuData.accel.x());
-    m_imuData.accel.setY(-m_imuData.accel.y());
+    ///m_imuData.accel.setX(-m_imuData.accel.x());
+    ///m_imuData.accel.setY(-m_imuData.accel.y());
 
     //  sort out compass axes
 
-    m_imuData.compass.setX(-m_imuData.compass.x());
-    m_imuData.compass.setZ(-m_imuData.compass.z());
+    ///m_imuData.compass.setX(-m_imuData.compass.x());
+    ///m_imuData.compass.setZ(-m_imuData.compass.z());
 
     //  now do standard processing
 
-    handleGyroBias();
-    calibrateAverageCompass();
-    calibrateAccel();
+    ///handleGyroBias();
+    ///calibrateAverageCompass();
+    ///calibrateAccel();
 
     //  now update the filter
 
-    updateFusion();
+    ///updateFusion();
 
     return true;
 }
